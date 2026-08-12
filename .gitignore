@@ -60,3 +60,6 @@ Thumbs.db
 
 # Package manager
 uv.lock
+
+# Downloaded local speech models and generated validation audio
+models/
