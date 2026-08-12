@@ -7,12 +7,13 @@ ClawBody uses OpenAI Realtime API for voice I/O (speech recognition + TTS)
 but routes all responses through OpenClaw (Clawson) for intelligence.
 """
 
-import json
 import asyncio
+import json
 import logging
 import uuid
-from typing import Optional, Any, AsyncIterator
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from typing import Optional
 
 import websockets
 
@@ -21,7 +22,8 @@ from reachy_mini_openclaw.config import config
 logger = logging.getLogger(__name__)
 
 # Protocol version supported by this client
-PROTOCOL_VERSION = 3
+# OpenClaw 2026.7+ requires protocol v4 for operator/webchat clients.
+PROTOCOL_VERSION = 4
 
 
 @dataclass
@@ -485,7 +487,6 @@ class OpenClawBridge:
             self._run_events[run_id] = event_queue
 
             try:
-                prev_text = ""
                 while True:
                     try:
                         event = await asyncio.wait_for(
