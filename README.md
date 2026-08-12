@@ -35,7 +35,41 @@ tags:
 
 **Give your OpenClaw AI agent a physical robot body!**
 
-ClawBody combines OpenClaw's AI intelligence with Reachy Mini's expressive robot body, using OpenAI's Realtime API for ultra-responsive voice conversation. Your OpenClaw assistant (Clawson) can now see, hear, speak, and move in the physical world.
+ClawBody combines OpenClaw's AI intelligence with Reachy Mini's expressive robot body. Local STT/TTS is the default voice path; OpenAI Realtime remains available as an optional backend.
+
+## Voice backends
+
+### Local voice (default)
+
+The local path is `Reachy microphone -> faster-whisper -> OpenClaw -> Piper -> Reachy speaker`. OpenClaw is the conversational agent and retains context in the configured `agent:<agent>:<session>` session.
+
+```bash
+pip install -e ".[local_voice]"
+python -m piper.download_voices en_US-lessac-medium
+
+export VOICE_BACKEND=local
+export OPENCLAW_GATEWAY_URL=ws://localhost:18789
+export OPENCLAW_AGENT_ID=main
+export OPENCLAW_SESSION_KEY=main
+export PIPER_MODEL="$PWD/en_US-lessac-medium.onnx"
+clawbody
+```
+
+No `OPENAI_API_KEY` is needed. `STT_MODEL` accepts a faster-whisper model name or local model directory. Set `STT_LANGUAGE` when language auto-detection is undesirable, and tune `VAD_THRESHOLD` for the microphone/noise level.
+
+Local mode asks OpenClaw for a strict `speech`/`actions` JSON envelope. Validated allow-listed actions are dispatched through ClawBody's existing local Reachy tools; plain text remains a safe speech-only fallback. This compatibility mechanism is used because the current gateway bridge has no reverse-RPC transport for process-local Reachy tools.
+
+### OpenAI Realtime
+
+```bash
+pip install -e ".[openai_voice]"
+export VOICE_BACKEND=openai
+export OPENAI_API_KEY=sk-...
+export OPENCLAW_GATEWAY_URL=ws://localhost:18789
+clawbody
+```
+
+The OpenAI backend preserves the existing Realtime server-VAD, speech-to-speech, and local tool-call path.
 
 ![Reachy Mini Dance](https://huggingface.co/spaces/pollen-robotics/reachy_mini_conversation_app/resolve/main/docs/assets/reachy_mini_dance.gif)
 
@@ -93,7 +127,7 @@ clawbody --gradio
 ## ✨ Features
 
 - **👁️ Face Tracking**: Robot tracks your face and maintains eye contact during conversation
-- **🎤 Real-time Voice Conversation**: OpenAI Realtime API for sub-second response latency
+- **🎤 Pluggable Voice Conversation**: offline faster-whisper/Piper or optional OpenAI Realtime
 - **🧠 OpenClaw Intelligence**: Your responses come from OpenClaw with full tool access
 - **👀 Vision**: See through the robot's camera and describe the environment
 - **💃 Expressive Movements**: Natural head movements, emotions, dances, and audio-driven wobble
@@ -120,9 +154,9 @@ clawbody --gradio
 ┌─────────────────────────────────────────────────┼───────────────┐
 │                      ClawBody                   │               │
 │  ┌─────────────────────────────────────────────┼────────────┐  │
-│  │         OpenAI Realtime API Handler         │            │  │
-│  │  • Speech recognition (Whisper)             │            │  │
-│  │  • Text-to-speech (voices)                 ─┘            │  │
+│  │          Selectable Voice Handler            │            │  │
+│  │  • Local faster-whisper + Piper              │            │  │
+│  │  • Optional OpenAI Realtime                 ─┘            │  │
 │  │  • Audio analysis → head wobble                          │  │
 │  └─────────────────────────────────────────────────────────┘  │
 │                           │                                     │
@@ -156,7 +190,7 @@ clawbody --gradio
 - Python 3.11+
 - [Reachy Mini SDK](https://github.com/pollen-robotics/reachy_mini) installed
 - [OpenClaw](https://github.com/openclaw/openclaw) gateway running
-- OpenAI API key with Realtime API access
+- A downloaded local STT/TTS model, or an OpenAI API key when using `VOICE_BACKEND=openai`
 
 ## 🚀 Installation
 
@@ -172,11 +206,11 @@ python -m venv .venv
 source .venv/bin/activate
 
 # Install ClawBody + simulator support + face tracking
-pip install -e ".[mediapipe_vision]"
+pip install -e ".[local_voice,mediapipe_vision]"
 pip install "reachy-mini[mujoco]"
 
 # Or for more accurate face tracking (requires more resources)
-# pip install -e ".[yolo_vision]"
+# pip install -e ".[local_voice,yolo_vision]"
 
 # Configure (see Configuration section)
 cp .env.example .env
@@ -200,7 +234,7 @@ git clone https://github.com/tomrikert/clawbody
 cd clawbody
 
 # Install in the apps virtual environment
-/venvs/apps_venv/bin/pip install -e .
+/venvs/apps_venv/bin/pip install -e ".[local_voice]"
 ```
 
 ## ⚙️ Configuration
@@ -214,15 +248,20 @@ cp .env.example .env
 2. Edit `.env` with your configuration:
 
 ```bash
-# Required
-OPENAI_API_KEY=sk-...your-key...
+# Voice path (local is the default and needs no OpenAI key)
+VOICE_BACKEND=local
+STT_MODEL=base.en
+PIPER_MODEL=/path/to/en_US-lessac-medium.onnx
 
 # OpenClaw Gateway (required for AI responses)
 OPENCLAW_GATEWAY_URL=http://localhost:18789  # or your host IP
 OPENCLAW_TOKEN=your-gateway-token
 OPENCLAW_AGENT_ID=main
 
-# Optional - Customize voice
+# Required only for VOICE_BACKEND=openai
+OPENAI_API_KEY=sk-...your-key...
+
+# Optional - Customize OpenAI voice
 OPENAI_VOICE=cedar
 
 # Optional - Face tracking (enabled by default)

@@ -1,7 +1,7 @@
 """ClawBody - Give your OpenClaw AI agent a physical robot body.
 
 This module provides the main application that connects:
-- OpenAI Realtime API for voice I/O (speech recognition + TTS)
+- A selectable local or OpenAI Realtime voice backend
 - OpenClaw Gateway for AI intelligence (Clawson's brain)
 - Reachy Mini robot for physical embodiment
 
@@ -24,9 +24,12 @@ import logging
 import argparse
 import threading
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    from reachy_mini import ReachyMini
 
 # Load environment from project root (override=True ensures .env takes precedence)
 _project_root = Path(__file__).parent.parent.parent
@@ -165,7 +168,7 @@ class ClawBodyCore:
         from reachy_mini_openclaw.audio.head_wobbler import HeadWobbler
         from reachy_mini_openclaw.openclaw_bridge import OpenClawBridge
         from reachy_mini_openclaw.tools.core_tools import ToolDependencies
-        from reachy_mini_openclaw.openai_realtime import OpenAIRealtimeHandler
+        from reachy_mini_openclaw.voice import create_voice_handler
         
         self.gateway_url = gateway_url
         self._external_stop_event = external_stop_event
@@ -252,8 +255,8 @@ class ClawBodyCore:
             vision_manager=self.vision_manager,
         )
         
-        # Initialize OpenAI Realtime handler with OpenClaw bridge
-        self.handler = OpenAIRealtimeHandler(
+        # Initialize the selected voice backend with shared robot dependencies
+        self.handler = create_voice_handler(
             deps=self.deps,
             openclaw_bridge=self.openclaw_bridge,
         )
@@ -261,6 +264,7 @@ class ClawBodyCore:
         # State
         self._stop_event = asyncio.Event()
         self._tasks: list[asyncio.Task] = []
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
         
     def _initialize_vision_manager(self) -> Optional[Any]:
         """Initialize local vision processor (SmolVLM2).
@@ -393,6 +397,7 @@ class ClawBodyCore:
             
     async def run(self) -> None:
         """Run the main application loop."""
+        self._loop = asyncio.get_running_loop()
         # Test OpenClaw connection
         if self.openclaw_bridge is not None:
             connected = await self.openclaw_bridge.connect()
@@ -446,31 +451,46 @@ class ClawBodyCore:
         
         logger.info("Ready! Speak to me...")
         
-        # Start OpenAI handler in background
-        handler_task = asyncio.create_task(self.handler.start_up(), name="openai-handler")
+        # Start the selected handler in background
+        handler_task = asyncio.create_task(self.handler.start_up(), name="voice-handler")
         
         # Start audio loops
         self._tasks = [
             handler_task,
             asyncio.create_task(self.record_loop(), name="record-loop"),
             asyncio.create_task(self.play_loop(), name="play-loop"),
+            asyncio.create_task(self._wait_for_stop(), name="stop-monitor"),
         ]
-        
+
         try:
-            await asyncio.gather(*self._tasks)
+            done, _ = await asyncio.wait(self._tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                if task.exception() is not None:
+                    raise task.exception()
         except asyncio.CancelledError:
             logger.info("Tasks cancelled")
+        finally:
+            for task in self._tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+            await self.handler.shutdown()
+            if self.openclaw_bridge is not None:
+                await self.openclaw_bridge.disconnect()
+
+    async def _wait_for_stop(self) -> None:
+        """Bridge threading stop events into the asyncio lifecycle."""
+        while not self._should_stop():
+            await asyncio.sleep(0.1)
             
     def stop(self) -> None:
         """Stop everything."""
         logger.info("Stopping...")
-        self._stop_event.set()
+        if self._loop is not None and self._loop.is_running():
+            self._loop.call_soon_threadsafe(self._stop_event.set)
+        else:
+            self._stop_event.set()
         
-        # Cancel tasks
-        for task in self._tasks:
-            if not task.done():
-                task.cancel()
-                
         # Stop movement system
         self.head_wobbler.stop()
         self.movement_manager.stop()
@@ -482,15 +502,6 @@ class ClawBodyCore:
         # Stop camera worker
         if self.camera_worker is not None:
             self.camera_worker.stop()
-        
-        # Disconnect OpenClaw bridge
-        if self.openclaw_bridge is not None:
-            try:
-                asyncio.get_event_loop().run_until_complete(
-                    self.openclaw_bridge.disconnect()
-                )
-            except Exception as e:
-                logger.debug("OpenClaw disconnect: %s", e)
         
         # Close resources if we own them
         if self._owns_robot:

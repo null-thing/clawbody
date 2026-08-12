@@ -1,6 +1,6 @@
 ---
 name: clawbody
-description: Give your OpenClaw AI agent a physical robot body with Reachy Mini. Works with physical robot OR simulator! Voice conversation via OpenAI Realtime API, vision, and expressive movements.
+description: Give your OpenClaw AI agent a physical robot body with Reachy Mini. Supports local voice or optional OpenAI Realtime, vision, and expressive movements.
 ---
 
 # ClawBody - Robot Body for OpenClaw
@@ -16,15 +16,15 @@ ClawBody embodies your OpenClaw AI assistant in a Reachy Mini robot, enabling it
 - **Speak**: Respond with natural voice through the robot's speaker
 - **Move**: Express emotions through expressive head movements and dances
 
-Using a hybrid architecture with OpenAI Realtime API for voice I/O and OpenClaw for intelligence, the robot responds with sub-second latency for natural conversation.
+In local mode, OpenClaw is the primary conversational agent, with offline STT/TTS and local robot actions. OpenAI Realtime remains an optional voice backend.
 
 ## Architecture
 
 ```
 You speak → Reachy Mini 🎤
                 ↓
-       OpenAI Realtime API
-    (speech recognition + TTS)
+   Local STT / optional Realtime
+      (speech input + output)
                 ↓
         OpenClaw Gateway
       (Clawson's brain 🦞)
@@ -44,7 +44,7 @@ You speak → Reachy Mini 🎤
 
 ### Software (Both Options)
 - Python 3.11+
-- OpenAI API key with Realtime API access
+- Local STT/TTS models, or an OpenAI API key for the optional Realtime backend
 - OpenClaw gateway running on your network
 
 ## Installation
@@ -53,7 +53,7 @@ You speak → Reachy Mini 🎤
 # Clone from GitHub
 git clone https://github.com/tomrikert/clawbody
 cd clawbody
-pip install -e .
+pip install -e ".[local_voice]"
 ```
 
 Or from HuggingFace:
@@ -66,9 +66,10 @@ git clone https://huggingface.co/spaces/tomrikert/clawbody
 Create a `.env` file:
 
 ```bash
-OPENAI_API_KEY=sk-your-key-here
+VOICE_BACKEND=local
 OPENCLAW_GATEWAY_URL=http://your-host-ip:18789
 OPENCLAW_TOKEN=your-gateway-token
+PIPER_MODEL=/path/to/en_US-lessac-medium.onnx
 ```
 
 ## Usage
@@ -98,8 +99,8 @@ clawbody --gradio
 
 ## Features
 
-### Real-time Voice Conversation
-Ultra-low latency voice interaction using OpenAI's Realtime API for speech recognition and text-to-speech.
+### Voice Conversation
+Local faster-whisper/Piper by default, with OpenAI Realtime available as an optional backend.
 
 ### OpenClaw Intelligence
 Full Clawson capabilities - tools, memory, personality - through the OpenClaw gateway HTTP API.

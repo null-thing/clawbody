@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "clawbody"
 version = "0.1.0"
-description = "ClawBody - Give your OpenClaw AI agent a physical robot body with Reachy Mini. Voice conversation powered by OpenAI Realtime API with expressive movements."
+description = "ClawBody - Give your OpenClaw AI agent a physical robot body with local or OpenAI voice and expressive movements."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
@@ -35,9 +35,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Human Machine Interfaces",
 ]
 dependencies = [
-    # OpenAI Realtime API
-    "openai>=1.50.0",
-    
     # Audio streaming
     "fastrtc>=0.0.17",
     "numpy",
@@ -58,6 +55,13 @@ dependencies = [
 # Or on the robot, it's pre-installed.
 
 [project.optional-dependencies]
+openai_voice = [
+    "openai>=1.50.0",
+]
+local_voice = [
+    "faster-whisper>=1.0.0",
+    "piper-tts>=1.2.0",
+]
 wireless = [
     "pygobject",
 ]

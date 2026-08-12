@@ -7,7 +7,6 @@ This module provides a web interface for:
 - Manual control options
 """
 
-import os
 import logging
 from typing import Optional
 
@@ -112,7 +111,7 @@ def launch_gradio(
         # 🤖 Reachy Mini OpenClaw
         
         Give your OpenClaw AI agent a physical presence with Reachy Mini.
-        Using OpenAI Realtime API for responsive voice conversation.
+        Using local voice or OpenAI Realtime for responsive conversation.
         """)
         
         with gr.Tab("Conversation"):
@@ -122,7 +121,7 @@ def launch_gradio(
             
             status_text = gr.Textbox(label="Status", interactive=False)
             
-            transcript = gr.Chatbot(label="Conversation", height=400)
+            gr.Chatbot(label="Conversation", height=400)
             
             start_btn.click(start_conversation, outputs=[status_text])
             stop_btn.click(stop_conversation, outputs=[status_text])
@@ -164,6 +163,7 @@ def launch_gradio(
             ### Current Configuration
             
             - **OpenClaw Gateway**: {gateway_url}
+            - **Voice Backend**: {config.VOICE_BACKEND}
             - **OpenAI Model**: {config.OPENAI_MODEL}
             - **Voice**: {config.OPENAI_VOICE}
             - **Camera Enabled**: {enable_camera}
@@ -180,8 +180,8 @@ def launch_gradio(
             
             This application combines:
             
-            - **OpenAI Realtime API** for ultra-low-latency voice conversation
-            - **OpenClaw Gateway** for extended AI capabilities (web, calendar, smart home, etc.)
+            - **Local STT/TTS or OpenAI Realtime** for voice conversation
+            - **OpenClaw Gateway** as the primary agent in local mode
             - **Reachy Mini Robot** for physical embodiment with expressive movements
             
             ### Features
