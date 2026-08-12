@@ -177,13 +177,13 @@ class AntennaFlutterMove(Move):
         self,
         start_pose: NDArray[np.float32],
         start_antennas: Tuple[float, float],
-        duration: float = 2.4,
+        duration: float = 3.2,
     ) -> None:
         self.start_pose = start_pose.copy()
         self.start_antennas = np.array(start_antennas, dtype=np.float64)
         self._duration = duration
-        self.amplitude = np.deg2rad(28)
-        self.frequency = 2.2
+        self.amplitude = np.deg2rad(42)
+        self.frequency = 3.2
 
     @property
     def duration(self) -> float:
@@ -193,7 +193,18 @@ class AntennaFlutterMove(Move):
         envelope = min(1.0, t / 0.18, max(0.0, (self._duration - t) / 0.35))
         flutter = envelope * self.amplitude * np.sin(2 * np.pi * self.frequency * t)
         antennas = self.start_antennas + np.array([flutter, -flutter], dtype=np.float64)
-        return (self.start_pose.copy(), antennas, 0.0)
+        head_bob = create_head_pose(
+            x=0,
+            y=0,
+            z=envelope * 0.006 * np.sin(2 * np.pi * 1.6 * t),
+            roll=envelope * np.deg2rad(5) * np.sin(2 * np.pi * 1.6 * t),
+            pitch=envelope * np.deg2rad(8) * np.sin(2 * np.pi * 1.6 * t),
+            yaw=envelope * np.deg2rad(10) * np.sin(2 * np.pi * 0.8 * t),
+            degrees=False,
+            mm=False,
+        )
+        head = compose_world_offset(self.start_pose, head_bob, reorthonormalize=True)
+        return (head, antennas, 0.0)
 
 
 def combine_full_body(primary: FullBodyPose, secondary: FullBodyPose) -> FullBodyPose:

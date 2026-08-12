@@ -115,7 +115,7 @@ Then add the following to the ignored project-root `.env` and restart ClawBody f
 ```env
 ENABLE_POSTURE_MONITOR=true
 POSTURE_MODEL_PATH=C:\absolute\path\to\pose_landmarker_lite.task
-POSTURE_FORWARD_HEAD_THRESHOLD=0.20
+POSTURE_FORWARD_HEAD_THRESHOLD=0.07
 POSTURE_SUSTAIN_SECONDS=4.0
 POSTURE_ALERT_COOLDOWN_SECONDS=30.0
 ```

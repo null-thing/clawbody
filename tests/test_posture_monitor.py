@@ -40,6 +40,7 @@ def test_posture_alert_move_flutters_antennas_without_moving_head():
     move = AntennaFlutterMove(start_pose, (0.0, 0.0))
     head, antennas, body_yaw = move.evaluate(0.35)
     assert head.shape == start_pose.shape
+    assert not (head == start_pose).all()
     assert antennas[0] == pytest.approx(-antennas[1])
     assert antennas[0] != 0.0
     assert body_yaw == 0.0

@@ -63,3 +63,4 @@ uv.lock
 
 # Downloaded local speech models and generated validation audio
 models/
+posture-status.json

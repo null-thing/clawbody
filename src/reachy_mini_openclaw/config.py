@@ -56,7 +56,7 @@ class Config:
     ENABLE_CAMERA: bool = field(default_factory=lambda: os.getenv("ENABLE_CAMERA", "true").lower() == "true")
     ENABLE_FACE_TRACKING: bool = field(default_factory=lambda: os.getenv("ENABLE_FACE_TRACKING", "true").lower() == "true")
     ENABLE_POSTURE_MONITOR: bool = field(default_factory=lambda: os.getenv("ENABLE_POSTURE_MONITOR", "false").lower() == "true")
-    POSTURE_FORWARD_HEAD_THRESHOLD: float = field(default_factory=lambda: float(os.getenv("POSTURE_FORWARD_HEAD_THRESHOLD", "0.20")))
+    POSTURE_FORWARD_HEAD_THRESHOLD: float = field(default_factory=lambda: float(os.getenv("POSTURE_FORWARD_HEAD_THRESHOLD", "0.07")))
     POSTURE_SUSTAIN_SECONDS: float = field(default_factory=lambda: float(os.getenv("POSTURE_SUSTAIN_SECONDS", "4.0")))
     POSTURE_ALERT_COOLDOWN_SECONDS: float = field(default_factory=lambda: float(os.getenv("POSTURE_ALERT_COOLDOWN_SECONDS", "30.0")))
     POSTURE_CHECK_INTERVAL_SECONDS: float = field(default_factory=lambda: float(os.getenv("POSTURE_CHECK_INTERVAL_SECONDS", "0.5")))
