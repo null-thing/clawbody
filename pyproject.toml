@@ -76,14 +76,14 @@ yolo_vision = [
 ]
 # MediaPipe-based face tracking (lighter weight alternative)
 mediapipe_vision = [
-    "mediapipe>=0.10.14",
+    "mediapipe>=0.10.14,<1.0",
 ]
 # All vision options
 all_vision = [
     "opencv-python",
     "ultralytics",
     "supervision",
-    "mediapipe>=0.10.14",
+    "mediapipe>=0.10.14,<1.0",
 ]
 # Legacy alias
 vision = [

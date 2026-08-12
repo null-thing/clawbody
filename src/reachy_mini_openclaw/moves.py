@@ -170,6 +170,32 @@ class HeadLookMove(Move):
         return (head_pose, antennas.astype(np.float64), 0.0)
 
 
+class AntennaFlutterMove(Move):
+    """A short antenna-only attention cue for local posture reminders."""
+
+    def __init__(
+        self,
+        start_pose: NDArray[np.float32],
+        start_antennas: Tuple[float, float],
+        duration: float = 2.4,
+    ) -> None:
+        self.start_pose = start_pose.copy()
+        self.start_antennas = np.array(start_antennas, dtype=np.float64)
+        self._duration = duration
+        self.amplitude = np.deg2rad(28)
+        self.frequency = 2.2
+
+    @property
+    def duration(self) -> float:
+        return self._duration
+
+    def evaluate(self, t: float) -> tuple:
+        envelope = min(1.0, t / 0.18, max(0.0, (self._duration - t) / 0.35))
+        flutter = envelope * self.amplitude * np.sin(2 * np.pi * self.frequency * t)
+        antennas = self.start_antennas + np.array([flutter, -flutter], dtype=np.float64)
+        return (self.start_pose.copy(), antennas, 0.0)
+
+
 def combine_full_body(primary: FullBodyPose, secondary: FullBodyPose) -> FullBodyPose:
     """Combine primary pose with secondary offsets."""
     primary_head, primary_ant, primary_yaw = primary
@@ -315,6 +341,10 @@ class MovementManager:
         Face tracking continues underneath since this is additive.
         """
         self._command_queue.put(("set_processing", processing))
+
+    def alert_posture(self) -> None:
+        """Queue a brief antenna reminder without directly controlling the robot."""
+        self._command_queue.put(("posture_alert", None))
         
     def is_idle(self) -> bool:
         """Check if robot has been idle. Thread-safe."""
@@ -433,6 +463,11 @@ class MovementManager:
                 # Amplitude will decay smoothly in _update_thinking_offsets
                 self.state.update_activity()
                 logger.debug("Processing ended - thinking animation decaying")
+        elif cmd == "posture_alert":
+            head, antennas, _ = self._last_commanded_pose
+            self.move_queue.append(AntennaFlutterMove(head, antennas))
+            self.state.update_activity()
+            logger.info("Queued posture reminder antenna flutter")
                 
     def _manage_move_queue(self, current_time: float) -> None:
         """Advance the move queue."""

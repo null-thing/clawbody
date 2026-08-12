@@ -99,6 +99,29 @@ Refresh or restart Reachy Mini Control, then start `clawbody` from Installed App
 
 The Control-managed `apps_venv` is intentionally separate from Conda environments. Installing the Reachy daemon into Conda on Windows can also create DLL conflicts between Conda's `libexpat` and the Reachy GStreamer bundle; use Control's bundled daemon and `apps_venv` on Windows.
 
+### Local posture reminder (optional)
+
+ClawBody can process the existing Reachy camera buffer locally and flutter its antennas after sustained forward-head posture is detected. It stores no frames and does not send camera data to OpenClaw. This is a reminder heuristic, not medical assessment; place the camera side-on or at a three-quarter angle for the most useful result.
+
+```powershell
+$appsPython = "$env:LOCALAPPDATA\Reachy Mini Control\apps_venv\Scripts\python.exe"
+& $appsPython -m pip install -e ".[local_voice,mediapipe_vision]"
+New-Item -ItemType Directory -Force .\models\mediapipe | Out-Null
+Invoke-WebRequest https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task -OutFile .\models\mediapipe\pose_landmarker_lite.task
+```
+
+Then add the following to the ignored project-root `.env` and restart ClawBody from Reachy Mini Control:
+
+```env
+ENABLE_POSTURE_MONITOR=true
+POSTURE_MODEL_PATH=C:\absolute\path\to\pose_landmarker_lite.task
+POSTURE_FORWARD_HEAD_THRESHOLD=0.20
+POSTURE_SUSTAIN_SECONDS=4.0
+POSTURE_ALERT_COOLDOWN_SECONDS=30.0
+```
+
+The default requires four seconds of continuous detection and waits thirty seconds before another alert. Increase the threshold if ordinary posture triggers it too readily.
+
 ![Reachy Mini Dance](https://huggingface.co/spaces/pollen-robotics/reachy_mini_conversation_app/resolve/main/docs/assets/reachy_mini_dance.gif)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)

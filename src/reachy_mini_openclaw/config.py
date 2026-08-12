@@ -55,6 +55,12 @@ class Config:
     ENABLE_OPENCLAW_TOOLS: bool = field(default_factory=lambda: os.getenv("ENABLE_OPENCLAW_TOOLS", "true").lower() == "true")
     ENABLE_CAMERA: bool = field(default_factory=lambda: os.getenv("ENABLE_CAMERA", "true").lower() == "true")
     ENABLE_FACE_TRACKING: bool = field(default_factory=lambda: os.getenv("ENABLE_FACE_TRACKING", "true").lower() == "true")
+    ENABLE_POSTURE_MONITOR: bool = field(default_factory=lambda: os.getenv("ENABLE_POSTURE_MONITOR", "false").lower() == "true")
+    POSTURE_FORWARD_HEAD_THRESHOLD: float = field(default_factory=lambda: float(os.getenv("POSTURE_FORWARD_HEAD_THRESHOLD", "0.20")))
+    POSTURE_SUSTAIN_SECONDS: float = field(default_factory=lambda: float(os.getenv("POSTURE_SUSTAIN_SECONDS", "4.0")))
+    POSTURE_ALERT_COOLDOWN_SECONDS: float = field(default_factory=lambda: float(os.getenv("POSTURE_ALERT_COOLDOWN_SECONDS", "30.0")))
+    POSTURE_CHECK_INTERVAL_SECONDS: float = field(default_factory=lambda: float(os.getenv("POSTURE_CHECK_INTERVAL_SECONDS", "0.5")))
+    POSTURE_MODEL_PATH: str = field(default_factory=lambda: os.getenv("POSTURE_MODEL_PATH", "models/mediapipe/pose_landmarker_lite.task"))
 
     # Face Tracking Configuration
     # Options: "yolo", "mediapipe", or None for auto-detect
@@ -81,6 +87,10 @@ class Config:
                 errors.append("STT_BACKEND must be 'faster-whisper'")
             if self.TTS_BACKEND != "piper":
                 errors.append("TTS_BACKEND must be 'piper'")
+        if self.POSTURE_FORWARD_HEAD_THRESHOLD <= 0:
+            errors.append("POSTURE_FORWARD_HEAD_THRESHOLD must be positive")
+        if self.POSTURE_SUSTAIN_SECONDS <= 0:
+            errors.append("POSTURE_SUSTAIN_SECONDS must be positive")
         return errors
 
 

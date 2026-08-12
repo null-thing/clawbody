@@ -224,6 +224,7 @@ class ClawBodyCore:
         self.camera_worker = None
         self.head_tracker = None
         self.vision_manager = None
+        self.posture_monitor = None
         
         if enable_camera:
             logger.info("Initializing camera worker...")
@@ -245,6 +246,19 @@ class ClawBodyCore:
             # Initialize local vision processor if enabled
             if config.ENABLE_LOCAL_VISION:
                 self.vision_manager = self._initialize_vision_manager()
+
+            if config.ENABLE_POSTURE_MONITOR:
+                from reachy_mini_openclaw.vision.posture_monitor import PostureMonitor
+
+                self.posture_monitor = PostureMonitor(
+                    camera_worker=self.camera_worker,
+                    on_turtle_neck=self.movement_manager.alert_posture,
+                    threshold=config.POSTURE_FORWARD_HEAD_THRESHOLD,
+                    sustain_seconds=config.POSTURE_SUSTAIN_SECONDS,
+                    cooldown_seconds=config.POSTURE_ALERT_COOLDOWN_SECONDS,
+                    check_interval=config.POSTURE_CHECK_INTERVAL_SECONDS,
+                    model_path=config.POSTURE_MODEL_PATH,
+                )
         
         # Create tool dependencies
         self.deps = ToolDependencies(
@@ -438,6 +452,9 @@ class ClawBodyCore:
         if self.camera_worker is not None:
             logger.info("Starting camera worker...")
             self.camera_worker.start()
+
+        if self.posture_monitor is not None:
+            self.posture_monitor.start()
         
         # Start local vision processor if available
         if self.vision_manager is not None:
@@ -491,6 +508,9 @@ class ClawBodyCore:
             self._loop.call_soon_threadsafe(self._stop_event.set)
         else:
             self._stop_event.set()
+
+        if self.posture_monitor is not None:
+            self.posture_monitor.stop()
         
         # Stop movement system
         self.head_wobbler.stop()
