@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from dotenv import load_dotenv
+from reachy_mini import ReachyMiniApp
 
 if TYPE_CHECKING:
     from reachy_mini import ReachyMini
@@ -514,7 +515,7 @@ class ClawBodyCore:
         logger.info("Stopped")
 
 
-class ClawBodyApp:
+class ReachyMiniOpenclaw(ReachyMiniApp):
     """ClawBody - Reachy Mini Apps entry point.
     
     This class allows ClawBody to be installed and run from
@@ -523,6 +524,7 @@ class ClawBodyApp:
     
     # No custom settings UI
     custom_app_url: Optional[str] = None
+    request_media_backend: Optional[str] = "default"
     
     def run(self, reachy_mini, stop_event: threading.Event) -> None:
         """Run ClawBody as a Reachy Mini App.
@@ -549,6 +551,10 @@ class ClawBodyApp:
         finally:
             app.stop()
             loop.close()
+
+
+# Backward-compatible name for existing imports.
+ClawBodyApp = ReachyMiniOpenclaw
 
 
 def main() -> None:
@@ -599,4 +605,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    app = ReachyMiniOpenclaw()
+    try:
+        app.wrapped_run()
+    except KeyboardInterrupt:
+        app.stop()

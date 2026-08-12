@@ -35,6 +35,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Human Machine Interfaces",
 ]
 dependencies = [
+    # Reachy Mini app/runtime contract
+    "reachy-mini>=1.8.0",
+
     # Audio streaming
     "fastrtc>=0.0.17",
     "numpy",
@@ -99,7 +102,7 @@ dev = [
 clawbody = "reachy_mini_openclaw.main:main"
 
 [project.entry-points."reachy_mini_apps"]
-clawbody = "reachy_mini_openclaw.main:ClawBodyApp"
+clawbody = "reachy_mini_openclaw.main:ReachyMiniOpenclaw"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/clawbody"

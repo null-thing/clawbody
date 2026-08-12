@@ -71,6 +71,34 @@ clawbody
 
 The OpenAI backend preserves the existing Realtime server-VAD, speech-to-speech, and local tool-call path.
 
+### Install locally in Reachy Mini Control (no Hugging Face)
+
+Reachy Mini Control discovers Python apps from its managed `apps_venv`. On Windows, install this checkout directly into that environment; no Space or publish step is required:
+
+```powershell
+$appsPython = "$env:LOCALAPPDATA\Reachy Mini Control\apps_venv\Scripts\python.exe"
+& $appsPython -m pip install -e ".[local_voice]"
+& $appsPython -c "import importlib.metadata as m; print([(e.name, e.value) for e in m.entry_points(group='reachy_mini_apps')])"
+```
+
+Configure the ignored project-root `.env` with absolute paths because Control starts the app from its managed process environment:
+
+```env
+VOICE_BACKEND=local
+OPENCLAW_GATEWAY_URL=ws://127.0.0.1:18789
+OPENCLAW_TOKEN=your-local-gateway-token
+OPENCLAW_AGENT_ID=main
+OPENCLAW_SESSION_KEY=main
+STT_MODEL=base
+STT_LANGUAGE=ko
+PIPER_EXECUTABLE=C:\Users\you\AppData\Local\Reachy Mini Control\apps_venv\Scripts\piper.exe
+PIPER_MODEL=C:\absolute\path\to\ko_KR-kss-medium.onnx
+```
+
+Refresh or restart Reachy Mini Control, then start `clawbody` from Installed Apps. Control runs it with `python -m reachy_mini_openclaw.main`, which uses the `ReachyMiniApp.wrapped_run()` lifecycle. Do not run another robot script while the app is active.
+
+The Control-managed `apps_venv` is intentionally separate from Conda environments. Installing the Reachy daemon into Conda on Windows can also create DLL conflicts between Conda's `libexpat` and the Reachy GStreamer bundle; use Control's bundled daemon and `apps_venv` on Windows.
+
 ![Reachy Mini Dance](https://huggingface.co/spaces/pollen-robotics/reachy_mini_conversation_app/resolve/main/docs/assets/reachy_mini_dance.gif)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
