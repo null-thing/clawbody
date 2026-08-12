@@ -13,7 +13,7 @@ Based on pollen-robotics/reachy_mini_conversation_app camera worker.
 import time
 import logging
 import threading
-from typing import Any, List, Tuple, Optional
+from typing import Any, Callable, List, Tuple, Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -51,6 +51,7 @@ class CameraWorker:
         self.frame_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        self._frame_observers: list[Callable[[NDArray[np.uint8]], None]] = []
 
         # Face tracking state
         self.is_head_tracking_enabled = True
@@ -130,6 +131,10 @@ class CameraWorker:
         self.is_head_tracking_enabled = enabled
         logger.info("Head tracking %s", "enabled" if enabled else "disabled")
 
+    def add_frame_observer(self, observer: Callable[[NDArray[np.uint8]], None]) -> None:
+        """Register a local callback that runs in the camera worker thread."""
+        self._frame_observers.append(observer)
+
     def start(self) -> None:
         """Start the camera worker loop in a thread."""
         self._stop_event.clear()
@@ -205,6 +210,12 @@ class CameraWorker:
                     # Thread-safe frame storage
                     with self.frame_lock:
                         self.latest_frame = frame
+
+                    for observer in self._frame_observers:
+                        try:
+                            observer(frame)
+                        except Exception as exc:
+                            logger.warning("Camera frame observer failed: %s", exc)
 
                     # Check if face tracking was just disabled
                     if self.previous_head_tracking_state and not self.is_head_tracking_enabled:

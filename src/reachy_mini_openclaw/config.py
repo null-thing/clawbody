@@ -61,6 +61,8 @@ class Config:
     POSTURE_ALERT_COOLDOWN_SECONDS: float = field(default_factory=lambda: float(os.getenv("POSTURE_ALERT_COOLDOWN_SECONDS", "30.0")))
     POSTURE_CHECK_INTERVAL_SECONDS: float = field(default_factory=lambda: float(os.getenv("POSTURE_CHECK_INTERVAL_SECONDS", "0.5")))
     POSTURE_MODEL_PATH: str = field(default_factory=lambda: os.getenv("POSTURE_MODEL_PATH", "models/mediapipe/pose_landmarker_lite.task"))
+    POSTURE_TEST_ALERT_ON_START: bool = field(default_factory=lambda: os.getenv("POSTURE_TEST_ALERT_ON_START", "false").lower() == "true")
+    POSTURE_DEBUG_STATUS_PATH: str | None = field(default_factory=lambda: os.getenv("POSTURE_DEBUG_STATUS_PATH") or None)
 
     # Face Tracking Configuration
     # Options: "yolo", "mediapipe", or None for auto-detect

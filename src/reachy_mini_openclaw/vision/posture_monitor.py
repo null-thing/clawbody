@@ -6,9 +6,9 @@ and never sends them to OpenClaw or another network service.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
-import threading
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -49,7 +49,7 @@ class PoseDetector(Protocol):
 def assess_forward_head(
     landmarks: Mapping[str, Landmark],
     threshold: float,
-    min_visibility: float = 0.5,
+    min_visibility: float = 0.0,
 ) -> PostureAssessment | None:
     """Estimate forward-head posture from ears, shoulders, and hips.
 
@@ -147,7 +147,7 @@ class MediaPipePoseDetector:
 
 
 class PostureMonitor:
-    """Poll the shared camera buffer and raise a bounded local posture alert."""
+    """Assess frames in the camera worker thread and raise a bounded alert."""
 
     def __init__(
         self,
@@ -159,6 +159,7 @@ class PostureMonitor:
         check_interval: float = 0.5,
         model_path: str = "models/mediapipe/pose_landmarker_lite.task",
         detector_factory: Callable[[], PoseDetector] | None = None,
+        debug_status_path: str | None = None,
     ) -> None:
         self.camera_worker = camera_worker
         self.on_turtle_neck = on_turtle_neck
@@ -167,54 +168,89 @@ class PostureMonitor:
         self.cooldown_seconds = cooldown_seconds
         self.check_interval = check_interval
         self.detector_factory = detector_factory or (lambda: MediaPipePoseDetector(model_path))
-        self._stop_event = threading.Event()
-        self._thread: threading.Thread | None = None
+        self.debug_status_path = Path(debug_status_path) if debug_status_path else None
+        self._active = False
+        self._detector: PoseDetector | None = None
+        self._bad_since: float | None = None
+        self._last_alert = float("-inf")
+        self._next_check = 0.0
+        self._frames_seen = 0
+        self._poses_seen = 0
+        self._alerts_sent = 0
+
+    def _write_debug_status(self, **values: object) -> None:
+        """Write numeric diagnostic state only; never writes camera frames."""
+        if self.debug_status_path is None:
+            return
+        try:
+            self.debug_status_path.parent.mkdir(parents=True, exist_ok=True)
+            self.debug_status_path.write_text(json.dumps(values), encoding="utf-8")
+        except OSError as exc:
+            logger.debug("Could not write posture diagnostic state: %s", exc)
 
     def start(self) -> bool:
-        """Start monitoring, returning False if the optional detector is unavailable."""
-        if self._thread is not None and self._thread.is_alive():
-            return True
-        try:
-            self._detector = self.detector_factory()
-        except (ImportError, FileNotFoundError) as exc:
-            logger.warning("Posture monitoring is disabled: %s", exc)
-            return False
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, name="posture-monitor", daemon=True)
-        self._thread.start()
-        logger.info("Local posture monitor started (no frames are stored or transmitted)")
+        """Enable frame processing; caller supplies frames via :meth:`process_frame`."""
+        self._active = True
+        self._write_debug_status(state="waiting_for_camera_frame")
+        logger.info("Local posture monitor enabled (no frames are stored or transmitted)")
         return True
 
     def stop(self) -> None:
-        self._stop_event.set()
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
-            self._thread = None
-        detector = getattr(self, "_detector", None)
-        if detector is not None:
-            detector.close()
+        self._active = False
+        if self._detector is not None:
+            self._detector.close()
             self._detector = None
         logger.info("Local posture monitor stopped")
 
-    def _run(self) -> None:
-        bad_since: float | None = None
-        last_alert = float("-inf")
-        while not self._stop_event.is_set():
-            try:
-                frame = self.camera_worker.get_latest_frame()
-                landmarks = self._detector.detect(frame) if frame is not None else None
-                assessment = (
-                    assess_forward_head(landmarks, self.threshold) if landmarks is not None else None
-                )
-                now = time.monotonic()
-                if assessment is not None and assessment.turtle_neck_suspected:
-                    bad_since = bad_since or now
-                    if now - bad_since >= self.sustain_seconds and now - last_alert >= self.cooldown_seconds:
-                        logger.info("Sustained forward-head posture detected (ratio=%.2f)", assessment.forward_head_ratio)
-                        self.on_turtle_neck()
-                        last_alert = now
-                else:
-                    bad_since = None
-            except Exception as exc:
-                logger.warning("Posture monitor frame skipped: %s", exc)
-            self._stop_event.wait(self.check_interval)
+    def process_frame(self, frame: NDArray[np.uint8]) -> None:
+        """Process a camera-worker frame at the configured interval.
+
+        Creating and using the MediaPipe task in the same camera worker thread
+        avoids its runtime thread-affinity issues in the Control app.
+        """
+        if not self._active:
+            return
+        now = time.monotonic()
+        if now < self._next_check:
+            return
+        self._next_check = now + self.check_interval
+        try:
+            if self._detector is None:
+                self._detector = self.detector_factory()
+        except Exception as exc:
+            logger.warning("Posture monitoring is disabled: %s", exc)
+            self._write_debug_status(state="detector_error", error=str(exc))
+            self._active = False
+            return
+        try:
+            self._frames_seen += 1
+            landmarks = self._detector.detect(frame)
+            self._poses_seen += int(landmarks is not None)
+            assessment = assess_forward_head(landmarks, self.threshold) if landmarks is not None else None
+            if assessment is not None and assessment.turtle_neck_suspected:
+                self._bad_since = self._bad_since or now
+                if now - self._bad_since >= self.sustain_seconds and now - self._last_alert >= self.cooldown_seconds:
+                    logger.info("Sustained forward-head posture detected (ratio=%.2f)", assessment.forward_head_ratio)
+                    self.on_turtle_neck()
+                    self._last_alert = now
+                    self._alerts_sent += 1
+            else:
+                self._bad_since = None
+            self._write_debug_status(
+                state="monitoring",
+                frames_seen=self._frames_seen,
+                poses_seen=self._poses_seen,
+                alerts_sent=self._alerts_sent,
+                score=None if assessment is None else round(assessment.forward_head_ratio, 4),
+                threshold=self.threshold,
+                visibility={name: round(point.visibility, 3) for name, point in landmarks.items()},
+            )
+        except Exception as exc:
+            logger.warning("Posture monitor frame skipped: %s", exc)
+            self._write_debug_status(
+                state="frame_error",
+                frames_seen=self._frames_seen,
+                poses_seen=self._poses_seen,
+                alerts_sent=self._alerts_sent,
+                error=str(exc),
+            )

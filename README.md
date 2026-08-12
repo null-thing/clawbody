@@ -122,6 +122,8 @@ POSTURE_ALERT_COOLDOWN_SECONDS=30.0
 
 The default requires four seconds of continuous detection and waits thirty seconds before another alert. Increase the threshold if ordinary posture triggers it too readily.
 
+For a one-time actuator-path check, set `POSTURE_TEST_ALERT_ON_START=true`, restart ClawBody, observe one antenna flutter, then change it back to `false`.
+
 ![Reachy Mini Dance](https://huggingface.co/spaces/pollen-robotics/reachy_mini_conversation_app/resolve/main/docs/assets/reachy_mini_dance.gif)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)

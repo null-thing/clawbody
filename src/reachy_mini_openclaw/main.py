@@ -258,7 +258,13 @@ class ClawBodyCore:
                     cooldown_seconds=config.POSTURE_ALERT_COOLDOWN_SECONDS,
                     check_interval=config.POSTURE_CHECK_INTERVAL_SECONDS,
                     model_path=config.POSTURE_MODEL_PATH,
+                    debug_status_path=config.POSTURE_DEBUG_STATUS_PATH,
                 )
+                self.camera_worker.add_frame_observer(self.posture_monitor.process_frame)
+                if config.POSTURE_DEBUG_STATUS_PATH:
+                    Path(config.POSTURE_DEBUG_STATUS_PATH).write_text(
+                        '{"state":"created"}', encoding="utf-8"
+                    )
         
         # Create tool dependencies
         self.deps = ToolDependencies(
@@ -412,6 +418,8 @@ class ClawBodyCore:
             
     async def run(self) -> None:
         """Run the main application loop."""
+        from reachy_mini_openclaw.config import config
+
         self._loop = asyncio.get_running_loop()
         # Test OpenClaw connection
         if self.openclaw_bridge is not None:
@@ -455,6 +463,9 @@ class ClawBodyCore:
 
         if self.posture_monitor is not None:
             self.posture_monitor.start()
+            if config.POSTURE_TEST_ALERT_ON_START:
+                logger.info("Running one-time posture alert diagnostic")
+                self.movement_manager.alert_posture()
         
         # Start local vision processor if available
         if self.vision_manager is not None:
@@ -481,7 +492,7 @@ class ClawBodyCore:
         ]
 
         try:
-            done, _ = await asyncio.wait(self._tasks, return_when=asyncio.FIRST_COMPLETED)
+            done, _ = await asyncio.wait(self._tasks, return_when=asyncio.FIRST_EXCEPTION)
             for task in done:
                 if task.exception() is not None:
                     raise task.exception()

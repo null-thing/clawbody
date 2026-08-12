@@ -32,7 +32,7 @@ def test_forward_head_assessment_ignores_neutral_alignment():
 def test_forward_head_assessment_needs_visible_torso():
     points = _landmarks(0.62)
     points["left_hip"] = Landmark(0.5, 0.9, visibility=0.2)
-    assert assess_forward_head(points, threshold=0.20) is None
+    assert assess_forward_head(points, threshold=0.20, min_visibility=0.5) is None
 
 
 def test_posture_alert_move_flutters_antennas_without_moving_head():
